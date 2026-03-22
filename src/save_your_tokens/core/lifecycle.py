@@ -97,9 +97,7 @@ class LifecycleManager:
                     block.last_referenced_turn = turn_num
 
         # Check overage levels per layer
-        overage_levels = {
-            layer: self._engine.check_overage(layer) for layer in ContextLayer
-        }
+        overage_levels = {layer: self._engine.check_overage(layer) for layer in ContextLayer}
 
         # Find stale blocks (Q3: pure turn counting)
         stale = self._engine.get_stale_blocks(self._stale_max_age)

@@ -37,8 +37,7 @@ class OpenAIAdapter(ModelAdapter):
                 self._encoding = tiktoken.encoding_for_model(self._model)
             except ImportError as e:
                 raise ImportError(
-                    "tiktoken package required. Install with: "
-                    "pip install save-your-tokens[openai]"
+                    "tiktoken package required. Install with: pip install save-your-tokens[openai]"
                 ) from e
         return self._encoding
 

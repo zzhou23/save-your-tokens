@@ -35,8 +35,7 @@ class ClaudeAdapter(ModelAdapter):
                 self._client = Anthropic()
             except ImportError as e:
                 raise ImportError(
-                    "anthropic package required. Install with: "
-                    "pip install save-your-tokens[claude]"
+                    "anthropic package required. Install with: pip install save-your-tokens[claude]"
                 ) from e
         return self._client
 
@@ -78,10 +77,12 @@ class ClaudeAdapter(ModelAdapter):
         # Session context as a context-setting user message
         session_text = "\n\n".join(b.content for b in session if b.content)
         if session_text:
-            messages.append({
-                "role": "user",
-                "content": f"[Session Context]\n{session_text}",
-            })
+            messages.append(
+                {
+                    "role": "user",
+                    "content": f"[Session Context]\n{session_text}",
+                }
+            )
 
         # Ephemeral content as messages
         for block in ephemeral:
@@ -96,12 +97,14 @@ class ClaudeAdapter(ModelAdapter):
         response = client.messages.create(
             model=self._model,
             max_tokens=target_tokens,
-            messages=[{
-                "role": "user",
-                "content": (
-                    f"Summarize the following content concisely, "
-                    f"preserving key information, in under {target_tokens} tokens:\n\n{content}"
-                ),
-            }],
+            messages=[
+                {
+                    "role": "user",
+                    "content": (
+                        f"Summarize the following content concisely, "
+                        f"preserving key information, in under {target_tokens} tokens:\n\n{content}"
+                    ),
+                }
+            ],
         )
         return response.content[0].text

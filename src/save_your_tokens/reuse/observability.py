@@ -40,8 +40,7 @@ def create_observer(backend: str = "noop", **kwargs: Any) -> Observer:
             return LangfuseObserver(client)
         except ImportError as e:
             raise ImportError(
-                "langfuse package required. Install with: "
-                "pip install save-your-tokens[langfuse]"
+                "langfuse package required. Install with: pip install save-your-tokens[langfuse]"
             ) from e
     return NoOpObserver()
 

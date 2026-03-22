@@ -6,6 +6,7 @@ for API calls (DeepSeek exposes an OpenAI-compatible endpoint).
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 try:
@@ -33,10 +34,16 @@ DEEPSEEK_CONTEXT_WINDOWS: dict[str, int] = {
 class DeepSeekAdapter(ModelAdapter):
     """Adapter for DeepSeek models via the OpenAI-compatible API."""
 
-    def __init__(self, model: str = "deepseek-chat", base_url: str = DEEPSEEK_BASE_URL) -> None:
+    def __init__(
+        self,
+        model: str = "deepseek-chat",
+        base_url: str = DEEPSEEK_BASE_URL,
+        api_key: str | None = None,
+    ) -> None:
         self._model = model
         self._context_window = DEEPSEEK_CONTEXT_WINDOWS.get(model, 64_000)
         self._base_url = base_url
+        self._api_key = api_key
         self._encoding: Any = None
         self._client: Any = None
 
@@ -63,7 +70,8 @@ class DeepSeekAdapter(ModelAdapter):
                 "openai package required. Install with: pip install save-your-tokens[deepseek]"
             )
         if self._client is None:
-            self._client = OpenAI(base_url=self._base_url)
+            api_key = self._api_key or os.environ.get("DEEPSEEK_API_KEY")
+            self._client = OpenAI(api_key=api_key, base_url=self._base_url)
         return self._client
 
     def count_tokens(self, text: str) -> int:
@@ -113,4 +121,5 @@ class DeepSeekAdapter(ModelAdapter):
                 {"role": "user", "content": content},
             ],
         )
-        return str(response.choices[0].message.content)
+        content = response.choices[0].message.content
+        return content if content is not None else None
