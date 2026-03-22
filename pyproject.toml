@@ -30,7 +30,7 @@ dependencies = [
 claude = ["anthropic>=0.30"]
 openai = ["openai>=1.0", "tiktoken>=0.7"]
 deepseek = ["openai>=1.0", "tiktoken>=0.7"]
-gemini = ["google-generativeai>=0.5"]
+gemini = ["google-genai>=1.0"]
 langfuse = ["langfuse>=2.0"]
 dev = [
     "pytest>=8.0",
