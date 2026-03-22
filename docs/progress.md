@@ -1,8 +1,9 @@
 ## Current Status
 
 - Completed: Project scaffold with all module interfaces and data models
-- Completed: Phase 1A test plan — `docs/superpowers/plans/2026-03-22-phase1a-unit-tests.md` (74 test cases, 7 tasks)
-- In progress: None (ready to execute Phase 1A test plan)
+- Completed: Phase 1A test plan — `docs/superpowers/plans/2026-03-22-phase1a-unit-tests.md`
+- Completed: Phase 1A unit tests — 98 tests, all passing, core/ and skills/ at 97-100% coverage
+- In progress: None (ready for Phase 1B: Integration & CLI)
 
 ## Key Decisions
 
