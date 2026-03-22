@@ -25,7 +25,7 @@ class ContextLayer(str, Enum):
 class BudgetProfile(BaseModel):
     """Token budget allocation across layers.
 
-    Budget formula: reserve output first, then allocate persistent -> session -> ephemeral gets rest.
+    Budget formula: reserve output first, then allocate persistent -> session -> ephemeral.
     """
 
     name: str

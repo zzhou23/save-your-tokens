@@ -30,14 +30,24 @@ class Compactor(Protocol):
 
 
 class DefaultCompactor:
-    """Default compactor using simple truncation. Placeholder for Phase 1."""
+    """Default compactor using extractive summarization.
+
+    Uses ExtractiveCompressor from reuse/compression.py for sentence-level
+    extraction, falling back to simple truncation for very short content.
+    """
+
+    def __init__(self) -> None:
+        from save_your_tokens.reuse.compression import ExtractiveCompressor
+
+        self._compressor = ExtractiveCompressor()
 
     def compact(self, content: str, target_tokens: int) -> str:
         # Rough estimate: 1 token ≈ 4 chars
         target_chars = target_tokens * 4
         if len(content) <= target_chars:
             return content
-        return content[:target_chars] + "\n[... truncated ...]"
+        target_ratio = target_chars / len(content)
+        return self._compressor.compress(content, target_ratio=target_ratio)
 
 
 class StrategyEngine:
@@ -124,9 +134,7 @@ class StrategyEngine:
             return []
 
         # Sort by metadata priority (lower = less important), trim from least important
-        sorted_blocks = sorted(
-            blocks, key=lambda b: b.metadata.get("priority", 50)
-        )
+        sorted_blocks = sorted(blocks, key=lambda b: b.metadata.get("priority", 50))
 
         affected_ids: list[str] = []
         usage = self._engine.compute_budgets()

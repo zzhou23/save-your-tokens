@@ -37,12 +37,12 @@ class TestDefaultCompactor:
         result = c.compact("short text", target_tokens=100)
         assert result == "short text"
 
-    def test_long_content_truncated(self):
+    def test_long_content_compressed(self):
         c = DefaultCompactor()
-        content = "a" * 1000
-        result = c.compact(content, target_tokens=10)
-        assert len(result) < 1000
-        assert result.endswith("[... truncated ...]")
+        content = "First sentence is important. Second sentence adds detail. Third wraps up."
+        result = c.compact(content, target_tokens=5)
+        # Extractive compressor keeps important sentences, result is shorter
+        assert len(result) < len(content)
 
     def test_exact_boundary(self):
         c = DefaultCompactor()

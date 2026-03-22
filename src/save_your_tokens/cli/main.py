@@ -12,6 +12,10 @@ import click
 
 from save_your_tokens.core.budget import BudgetEngine
 from save_your_tokens.core.spec import BUILTIN_PROFILES, ContextLayer
+from save_your_tokens.reuse.tokenizers import TokenCounter
+
+# Shared token counter — uses tiktoken if available, else char estimation
+_token_counter = TokenCounter.for_model("claude-3")
 
 
 @click.group()
@@ -77,7 +81,7 @@ def _analyze_directory(project_dir: str, engine: BudgetEngine, quiet: bool) -> N
         full_path = project / rel_path
         if full_path.exists():
             content = full_path.read_text(encoding="utf-8")
-            token_est = len(content) // 4
+            token_est = _token_counter.count(content)
             from save_your_tokens.core.spec import ContextBlock
 
             block = ContextBlock(
@@ -155,12 +159,12 @@ def _analyze_log(log_file: str, engine: BudgetEngine, quiet: bool) -> None:
     for msg in messages:
         text = msg.get("content", "")
         if isinstance(text, str):
-            total_tokens += len(text) // 4
+            total_tokens += _token_counter.count(text)
 
     if quiet:
         click.echo(f"syt: {len(messages)} messages, ~{total_tokens:,} tokens")
     else:
-        click.echo(f"=== Conversation Log Analysis ===")
+        click.echo("=== Conversation Log Analysis ===")
         click.echo(f"Messages: {len(messages)}")
         click.echo(f"Estimated tokens: {total_tokens:,}")
 
@@ -171,9 +175,7 @@ def _analyze_log(log_file: str, engine: BudgetEngine, quiet: bool) -> None:
 @click.option("--dry-run", is_flag=True, help="Show what would be compacted")
 @click.option("--profile", type=click.Choice(list(BUILTIN_PROFILES.keys())), default="agentic")
 @click.option("--context-window", default=200000, help="Context window size")
-def compact(
-    target: str, auto_mode: bool, dry_run: bool, profile: str, context_window: int
-) -> None:
+def compact(target: str, auto_mode: bool, dry_run: bool, profile: str, context_window: int) -> None:
     """Compact context files. Defaults to current directory, or specify a file/stdin."""
     target_path = Path(target)
     budget_profile = BUILTIN_PROFILES[profile]
@@ -192,9 +194,9 @@ def _compact_directory(
     directory: Path, engine: BudgetEngine, auto_mode: bool, dry_run: bool
 ) -> None:
     """Compact context files in a directory."""
-    from save_your_tokens.integrations.claude_code import CONTEXT_FILE_LAYERS
     from save_your_tokens.core.spec import ContextBlock
     from save_your_tokens.core.strategy import StrategyEngine
+    from save_your_tokens.integrations.claude_code import CONTEXT_FILE_LAYERS
 
     for rel_path, layer in CONTEXT_FILE_LAYERS.items():
         full_path = directory / rel_path
@@ -204,7 +206,7 @@ def _compact_directory(
                 id=f"file:{rel_path}",
                 layer=layer,
                 content=content,
-                token_count=len(content) // 4,
+                token_count=_token_counter.count(content),
                 source=f"file:{rel_path}",
             )
             engine.add_block(block)
@@ -238,14 +240,16 @@ def _compact_file(path: Path, engine: BudgetEngine, dry_run: bool) -> None:
     from save_your_tokens.reuse.compression import ExtractiveCompressor
 
     content = path.read_text(encoding="utf-8")
-    original_tokens = len(content) // 4
+    original_tokens = _token_counter.count(content)
 
     compressor = ExtractiveCompressor()
     compressed = compressor.compress(content, target_ratio=0.5)
-    compressed_tokens = len(compressed) // 4
+    compressed_tokens = _token_counter.count(compressed)
 
     if dry_run:
-        click.echo(f"Would compact {path.name}: {original_tokens:,} -> ~{compressed_tokens:,} tokens")
+        click.echo(
+            f"Would compact {path.name}: {original_tokens:,} -> ~{compressed_tokens:,} tokens"
+        )
         return
 
     path.write_text(compressed, encoding="utf-8")
