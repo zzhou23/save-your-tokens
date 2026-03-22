@@ -12,6 +12,8 @@ class Observer(Protocol):
     """Protocol for observability backends."""
 
     def track_usage(self, event: dict[str, Any]) -> None: ...
+    def track_compaction(self, before_tokens: int, after_tokens: int, method: str) -> None: ...
+    def track_budget_warning(self, usage: Any, threshold: str) -> None: ...
     def flush(self) -> None: ...
 
 
@@ -19,6 +21,12 @@ class NoOpObserver:
     """Default observer that does nothing."""
 
     def track_usage(self, event: dict[str, Any]) -> None:
+        pass
+
+    def track_compaction(self, before_tokens: int, after_tokens: int, method: str) -> None:
+        pass
+
+    def track_budget_warning(self, usage: Any, threshold: str) -> None:
         pass
 
     def flush(self) -> None:
@@ -53,6 +61,23 @@ class LangfuseObserver:
 
     def track_usage(self, event: dict[str, Any]) -> None:
         self._client.trace(name="syt-usage", metadata=event)
+
+    def track_compaction(self, before_tokens: int, after_tokens: int, method: str) -> None:
+        self._client.trace(
+            name="syt-compaction",
+            metadata={
+                "before_tokens": before_tokens,
+                "after_tokens": after_tokens,
+                "method": method,
+                "savings_pct": round((1 - after_tokens / max(before_tokens, 1)) * 100, 1),
+            },
+        )
+
+    def track_budget_warning(self, usage: Any, threshold: str) -> None:
+        self._client.trace(
+            name="syt-budget-warning",
+            metadata={"threshold": threshold, "usage": str(usage)},
+        )
 
     def flush(self) -> None:
         self._client.flush()

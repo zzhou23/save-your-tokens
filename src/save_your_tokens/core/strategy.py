@@ -7,7 +7,7 @@ Phase 1: rule-based. Phase 2+: LLM-assisted decisions.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from save_your_tokens.core.spec import (
     CompactAction,
@@ -27,21 +27,35 @@ class StrategyEngine:
         self,
         budget_engine: BudgetEngine,
         compactor: Compactor | None = None,
+        observer: Any = None,
     ) -> None:
         self._engine = budget_engine
         self._compactor = compactor or DefaultCompactor()
+        if observer is None:
+            from save_your_tokens.reuse.observability import NoOpObserver
+
+            observer = NoOpObserver()
+        self._observer = observer
 
     def execute_action(self, action: CompactAction) -> list[str]:
         """Execute a single compact action. Returns IDs of affected blocks."""
         match action:
             case CompactAction.DROP_STALE_EPHEMERAL:
-                return self._drop_stale_ephemeral()
+                result = self._drop_stale_ephemeral()
             case CompactAction.SUMMARIZE_EPHEMERAL:
-                return self._summarize_layer(ContextLayer.EPHEMERAL)
+                result = self._summarize_layer(ContextLayer.EPHEMERAL)
             case CompactAction.COMPACT_SESSION:
-                return self._summarize_layer(ContextLayer.SESSION)
+                result = self._summarize_layer(ContextLayer.SESSION)
             case CompactAction.FORCE_TRIM_PERSISTENT:
-                return self._force_trim_persistent()
+                result = self._force_trim_persistent()
+        self._observer.track_usage(
+            {
+                "type": "compact_action",
+                "action": action.value,
+                "affected": len(result),
+            }
+        )
+        return result
 
     def execute_actions(self, actions: list[CompactAction]) -> dict[CompactAction, list[str]]:
         """Execute a list of actions in order. Returns mapping of action -> affected block IDs."""

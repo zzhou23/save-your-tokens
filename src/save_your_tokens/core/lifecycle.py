@@ -47,12 +47,17 @@ class TurnResult:
 class LifecycleManager:
     """Manages the lifecycle of a context-managed session."""
 
-    def __init__(self, budget_engine: BudgetEngine) -> None:
+    def __init__(self, budget_engine: BudgetEngine, observer: Any = None) -> None:
         self._engine = budget_engine
         self._phase = SessionPhase.INITIALIZING
         self._turn_history: list[TurnResult] = []
         self._stale_max_age: int = 10  # Default: 10 turns (Q3)
         self._compact_interval: int = 0  # 0 = disabled
+        if observer is None:
+            from save_your_tokens.reuse.observability import NoOpObserver
+
+            observer = NoOpObserver()
+        self._observer = observer
 
     @property
     def phase(self) -> SessionPhase:
@@ -118,6 +123,14 @@ class LifecycleManager:
             stale_block_ids=stale_ids,
         )
         self._turn_history.append(result)
+        self._observer.track_usage(
+            {
+                "type": "turn_complete",
+                "turn_number": result.turn_number,
+                "needs_compaction": result.needs_compaction,
+                "stale_blocks": len(result.stale_block_ids),
+            }
+        )
         return result
 
     def end_session(self) -> dict[str, Any]:
