@@ -7,47 +7,17 @@ Phase 1: rule-based. Phase 2+: LLM-assisted decisions.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING
 
 from save_your_tokens.core.spec import (
     CompactAction,
     ContextBlock,
     ContextLayer,
 )
+from save_your_tokens.reuse.compactor import Compactor, DefaultCompactor
 
 if TYPE_CHECKING:
     from save_your_tokens.core.budget import BudgetEngine
-
-
-class Compactor(Protocol):
-    """Protocol for content compaction (Q4: adapter can optionally implement this).
-
-    Phase 1: strategy + optional adapter.model_compact()
-    Future: independent Compactor interface for local models etc.
-    """
-
-    def compact(self, content: str, target_tokens: int) -> str: ...
-
-
-class DefaultCompactor:
-    """Default compactor using extractive summarization.
-
-    Uses ExtractiveCompressor from reuse/compression.py for sentence-level
-    extraction, falling back to simple truncation for very short content.
-    """
-
-    def __init__(self) -> None:
-        from save_your_tokens.reuse.compression import ExtractiveCompressor
-
-        self._compressor = ExtractiveCompressor()
-
-    def compact(self, content: str, target_tokens: int) -> str:
-        # Rough estimate: 1 token ≈ 4 chars
-        target_chars = target_tokens * 4
-        if len(content) <= target_chars:
-            return content
-        target_ratio = target_chars / len(content)
-        return self._compressor.compress(content, target_ratio=target_ratio)
 
 
 class StrategyEngine:
