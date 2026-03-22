@@ -1,11 +1,11 @@
 ## Current Status
 
 - Completed: Project scaffold with all module interfaces and data models
-- Completed: Phase 1A test plan — `docs/superpowers/plans/2026-03-22-phase1a-unit-tests.md`
-- Completed: Phase 1A unit tests — 98 tests, core/ and skills/ at 97-100% coverage
+- Completed: Phase 1A — 98 unit tests, core/ and skills/ at 97-100% coverage
 - Completed: Phase 1B — integration tests (16), CLI e2e tests (19), DefaultCompactor upgrade, token estimation
+- Completed: Phase 1C — benchmark (15.5% savings), README update, PyPI build verified
 - Total: 133 tests passing, 79% overall coverage
-- In progress: None (ready for Phase 1C: Benchmark & Release)
+- **Phase 1 complete.** Package built: `save_your_tokens-0.1.0-py3-none-any.whl`
 
 ## Key Decisions
 
@@ -16,31 +16,20 @@ Notable:
 - Two-layer integration design (inner unified logic + outer framework glue)
 - Strategy engine owns compact flow; adapters provide optional `model_compact()`
 - Skills are format-agnostic text blocks with metadata, budget-aware load/unload only
+- Benchmark: synthetic 50-turn session, 15.5% token savings exceeding JetBrains 7-11%
 
 ## Known Issues
 
 - `TokenCounter` in `reuse/tokenizers.py` uses char-based estimation for Anthropic models (API call needed for accurate count)
-- `DefaultCompactor` in `core/strategy.py` uses naive truncation; needs real extractive summarization
-- `cli/main.py` uses `len(content) // 4` token estimation throughout; should use adapter-specific counting
+- Benchmark uses synthetic data; real LLM session validation needed in Phase 2
+- Compaction uses extractive summarization, not LLM-based (Phase 2: independent Compactor)
 
 ## Next Steps
 
-### Phase 1A: Core Tests & Validation
-1. Write unit tests for `core/spec.py` — model construction, budget profiles, ephemeral_pct calculation
-2. Write unit tests for `core/budget.py` — allocation, tiered overage, stale block detection
-3. Write unit tests for `core/strategy.py` — compact action execution, escalation order
-4. Write unit tests for `core/lifecycle.py` — session lifecycle, post-turn evaluation
-5. Write unit tests for `skills/loader.py` — load/unload, budget rejection on REJECT overage
-6. Write unit tests for `skills/registry.py` — directory scanning, frontmatter parsing, JSON skills
-
-### Phase 1B: Integration & CLI
-7. Write integration tests for `integrations/claude_code.py` — file scanning, hooks config generation
-8. Write CLI end-to-end tests for `syt init`, `syt analyze`, `syt compact`
-9. Replace char-based token estimation with adapter-aware counting in CLI commands
-10. Implement real extractive summarization in `DefaultCompactor`
-
-### Phase 1C: Benchmark & Release
-11. Design benchmark methodology: define baseline (raw conversation) vs managed (syt-enabled)
-12. Run benchmark on a real agentic coding session — measure token savings + output quality
-13. Write README.md with benchmark results and quickstart guide
-14. Publish to PyPI as 0.1.0-alpha
+### Phase 2: Ecosystem Expansion
+1. DeepSeek / Gemini model adapters
+2. LangChain + raw SDK framework integrations
+3. Independent `Compactor` interface (for local models)
+4. Langfuse observability integration
+5. Real LLM session benchmark validation
+6. Publish to PyPI (requires account + API token)
