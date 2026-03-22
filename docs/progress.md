@@ -2,8 +2,10 @@
 
 - Completed: Project scaffold with all module interfaces and data models
 - Completed: Phase 1A test plan — `docs/superpowers/plans/2026-03-22-phase1a-unit-tests.md`
-- Completed: Phase 1A unit tests — 98 tests, all passing, core/ and skills/ at 97-100% coverage
-- In progress: None (ready for Phase 1B: Integration & CLI)
+- Completed: Phase 1A unit tests — 98 tests, core/ and skills/ at 97-100% coverage
+- Completed: Phase 1B — integration tests (16), CLI e2e tests (19), DefaultCompactor upgrade, token estimation
+- Total: 133 tests passing, 79% overall coverage
+- In progress: None (ready for Phase 1C: Benchmark & Release)
 
 ## Key Decisions
 
