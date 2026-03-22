@@ -29,6 +29,8 @@ dependencies = [
 [project.optional-dependencies]
 claude = ["anthropic>=0.30"]
 openai = ["openai>=1.0", "tiktoken>=0.7"]
+deepseek = ["openai>=1.0", "tiktoken>=0.7"]
+gemini = ["google-generativeai>=0.5"]
 langfuse = ["langfuse>=2.0"]
 dev = [
     "pytest>=8.0",
@@ -36,7 +38,7 @@ dev = [
     "ruff>=0.4",
     "mypy>=1.10",
 ]
-all = ["save-your-tokens[claude,openai,langfuse]"]
+all = ["save-your-tokens[claude,openai,deepseek,gemini,langfuse]"]
 
 [project.scripts]
 syt = "save_your_tokens.cli.main:cli"
