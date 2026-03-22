@@ -149,7 +149,7 @@ class TestGeminiFormatContext:
             metadata={"role": role},
         )
 
-    def test_persistent_becomes_system_role(self):
+    def test_persistent_becomes_user_role_with_system_instructions_prefix(self):
         from save_your_tokens.adapters.gemini import GeminiAdapter
 
         adapter = GeminiAdapter()
@@ -157,8 +157,9 @@ class TestGeminiFormatContext:
         messages = adapter.format_context([block], [], [])
 
         assert len(messages) == 1
-        assert messages[0]["role"] == "system"
-        assert messages[0]["parts"] == [{"text": "You are a helpful assistant."}]
+        assert messages[0]["role"] == "user"
+        assert messages[0]["parts"][0]["text"].startswith("[System Instructions]")
+        assert "You are a helpful assistant." in messages[0]["parts"][0]["text"]
 
     def test_session_becomes_user_with_prefix(self):
         from save_your_tokens.adapters.gemini import GeminiAdapter
@@ -205,7 +206,8 @@ class TestGeminiFormatContext:
         messages = adapter.format_context(persistent, session, ephemeral)
 
         assert len(messages) == 3
-        assert messages[0]["role"] == "system"
+        assert messages[0]["role"] == "user"
+        assert "[System Instructions]" in messages[0]["parts"][0]["text"]
         assert messages[1]["role"] == "user"
         assert "[Session Context]" in messages[1]["parts"][0]["text"]
         assert messages[2]["role"] == "user"
@@ -231,7 +233,8 @@ class TestGeminiFormatContext:
         messages = adapter.format_context(blocks, [], [])
 
         assert len(messages) == 1
-        assert messages[0]["role"] == "system"
+        assert messages[0]["role"] == "user"
+        assert "[System Instructions]" in messages[0]["parts"][0]["text"]
         assert "Part A." in messages[0]["parts"][0]["text"]
         assert "Part B." in messages[0]["parts"][0]["text"]
 

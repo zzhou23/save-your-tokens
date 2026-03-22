@@ -73,35 +73,55 @@ class GeminiAdapter(ModelAdapter):
         session: list[ContextBlock],
         ephemeral: list[ContextBlock],
     ) -> list[dict[str, Any]]:
-        """Format context for Gemini's native contents/parts structure."""
-        messages: list[dict[str, Any]] = []
+        """Format context for Gemini's contents/parts structure.
 
-        # Persistent -> system role
+        Returns a list of content dicts. The first entry (if persistent context exists)
+        has role="user" with a [System Instructions] prefix, since Gemini handles
+        system_instruction separately at the API call level. Callers using the Gemini SDK
+        directly should extract this and pass it via system_instruction parameter.
+        """
+        contents: list[dict[str, Any]] = []
+
         persistent_text = "\n\n".join(b.content for b in persistent if b.content)
         if persistent_text:
-            messages.append({"role": "system", "parts": [{"text": persistent_text}]})
-
-        # Session -> user role with prefix
-        session_text = "\n\n".join(b.content for b in session if b.content)
-        if session_text:
-            messages.append(
-                {"role": "user", "parts": [{"text": f"[Session Context]\n{session_text}"}]}
+            contents.append(
+                {
+                    "role": "user",
+                    "parts": [{"text": f"[System Instructions]\n{persistent_text}"}],
+                }
             )
 
-        # Ephemeral -> user/model messages ("assistant" mapped to "model")
-        for block in ephemeral:
-            raw_role = block.metadata.get("role", "user")
-            role = "model" if raw_role == "assistant" else raw_role
-            messages.append({"role": role, "parts": [{"text": block.content}]})
+        session_text = "\n\n".join(b.content for b in session if b.content)
+        if session_text:
+            contents.append(
+                {
+                    "role": "user",
+                    "parts": [{"text": f"[Session Context]\n{session_text}"}],
+                }
+            )
 
-        return messages
+        for block in ephemeral:
+            role = block.metadata.get("role", "user")
+            if role == "assistant":
+                role = "model"
+            contents.append(
+                {
+                    "role": role,
+                    "parts": [{"text": block.content}],
+                }
+            )
+
+        return contents
 
     def model_compact(self, content: str, target_tokens: int) -> str | None:
-        """Use Gemini's API to compact content to approximately target_tokens."""
+        """Use Gemini API to summarize content."""
         client = self._get_client()
         response = client.models.generate_content(
             model=self._model,
-            contents=content,
+            contents=(
+                f"Summarize the following content concisely, "
+                f"preserving key information, in under {target_tokens} tokens:\n\n{content}"
+            ),
             config={"max_output_tokens": target_tokens},
         )
         return response.text
