@@ -14,7 +14,7 @@ Phase 2 expands save-your-tokens from a Claude/OpenAI-focused prototype to a mul
 
 **File**: `src/save_your_tokens/adapters/deepseek.py`
 
-- Token counting via `tiktoken` (DeepSeek uses a tiktoken-compatible tokenizer)
+- Token counting via `tiktoken` with `cl100k_base` encoding as fallback (DeepSeek's custom BPE tokenizer is not in tiktoken's public model registry, so `encoding_for_model()` won't work directly)
 - Context windows: `deepseek-chat` = 64K, `deepseek-coder` = 128K, `deepseek-reasoner` = 64K
 - `format_context()`: OpenAI-compatible message format (system/user/assistant)
 - `model_compact()`: via DeepSeek API (OpenAI-compatible endpoint, base_url override)
@@ -49,24 +49,31 @@ Update `adapters/__init__.py` to expose all four adapters with lazy imports.
 
 Move `Compactor` Protocol and `DefaultCompactor` from `core/strategy.py` to `src/save_your_tokens/reuse/compactor.py`. `strategy.py` imports from the new location (backward compatible).
 
+**Compactor vs Compressor relationship**: `reuse/compression.py` has a ratio-based `Compressor` ABC (`compress(text, target_ratio) -> str`). The token-based `Compactor` Protocol (`compact(content, target_tokens) -> str`) is a higher-level interface. `DefaultCompactor` already wraps `ExtractiveCompressor` with a token-to-ratio conversion (`target_tokens * 4 / len(content)`). The same adapter pattern applies to `TruncationCompressor`. Both `Compressor` classes remain in `compression.py` unchanged — they are low-level utilities. `compactor.py` provides the token-aware wrappers.
+
 ### 2.2 New Implementations
 
 **File**: `src/save_your_tokens/reuse/compactor.py`
 
 ```python
 class Compactor(Protocol):
-    """Protocol for content compaction."""
+    """Protocol for content compaction (token-based interface)."""
     def compact(self, content: str, target_tokens: int) -> str: ...
 
 class DefaultCompactor:
-    """Extractive summarization (existing, moved here)."""
+    """Wraps ExtractiveCompressor with token-to-ratio conversion (existing, moved here)."""
+
+class TruncationCompactor:
+    """Wraps TruncationCompressor with token-to-ratio conversion."""
 
 class LLMCompactor:
-    """Uses any ModelAdapter for API-based summarization."""
+    """Uses any ModelAdapter for API-based summarization.
+    Requires adapter with model_compact() support. Raises NotImplementedError
+    if the adapter doesn't support native compaction."""
     def __init__(self, adapter: ModelAdapter) -> None: ...
     def compact(self, content: str, target_tokens: int) -> str:
-        # Delegates to adapter.model_compact() if supported,
-        # otherwise constructs a summarization prompt via the adapter's API
+        # Calls adapter.model_compact(content, target_tokens)
+        # Raises NotImplementedError if adapter.supports_native_compact is False
 
 class LocalModelCompactor:
     """Uses a local model (Ollama/vLLM) for compaction. No cloud API needed."""
@@ -74,9 +81,11 @@ class LocalModelCompactor:
         self,
         endpoint: str = "http://localhost:11434",
         model: str = "llama3",
+        token_estimator: Callable[[str], int] | None = None,
     ) -> None: ...
     def compact(self, content: str, target_tokens: int) -> str:
         # HTTP POST to local inference server (OpenAI-compatible /v1/chat/completions)
+        # Uses token_estimator if provided, else rough char/4 estimate for max_tokens
 ```
 
 ### 2.3 Compactor Factory
@@ -86,9 +95,9 @@ def create_compactor(backend: str = "extractive", **kwargs) -> Compactor:
     """Factory for compactor backends.
 
     Backends:
-      - "extractive": DefaultCompactor (sentence extraction, no deps)
-      - "truncation": TruncationCompressor (simple truncation)
-      - "llm": LLMCompactor (requires adapter kwarg)
+      - "extractive": DefaultCompactor (wraps ExtractiveCompressor, no deps)
+      - "truncation": TruncationCompactor (wraps TruncationCompressor)
+      - "llm": LLMCompactor (requires adapter kwarg with model_compact support)
       - "local": LocalModelCompactor (requires endpoint/model kwargs)
     """
 ```
@@ -116,9 +125,10 @@ class LangfuseObserver:
 
 ### 3.2 Lifecycle Wiring
 
-- `LifecycleManager.__init__()` accepts optional `observer: Observer`
+- `LifecycleManager.__init__()` accepts optional `observer: Observer = None` (defaults to `NoOpObserver`)
+- `StrategyEngine.__init__()` accepts optional `observer: Observer = None` (defaults to `NoOpObserver`)
 - `post_turn()` emits `turn_complete` event with usage snapshot
-- `StrategyEngine.execute_action()` emits `compact_action` events via observer
+- `StrategyEngine.execute_action()` emits `compact_action` events via `self._observer`
 - Default: `NoOpObserver` (zero overhead when Langfuse not configured)
 
 ## 4. Framework Integrations
@@ -127,17 +137,25 @@ class LangfuseObserver:
 
 **File**: `src/save_your_tokens/integrations/langchain.py`
 
+**Design note**: `FrameworkIntegration` ABC was designed for hook-based integrations (like Claude Code) with `setup()`/`teardown()` lifecycle. LangChain's LCEL model is fundamentally different — it's a composable chain, not a hook system. Rather than force-fitting LCEL into the hook-based ABC, we use a two-class design:
+
+- `LangChainIntegration(FrameworkIntegration)` — implements the abstract methods for users who want the full lifecycle interface
+- `SYTRunnable(RunnableSerializable)` — thin LCEL adapter that delegates to `LangChainIntegration` internally
+
 ```python
+class LangChainIntegration(FrameworkIntegration):
+    """Inner layer: implements FrameworkIntegration for LangChain."""
+    def __init__(self, budget_engine, lifecycle, strategy, adapter): ...
+    def setup(self, config): ...      # No-op (LCEL doesn't need hooks)
+    def teardown(self): ...            # No-op
+    def intercept_context(self, messages): ...  # Classify, budget check, compact, format
+    def on_response(self, response): ...        # Post-turn lifecycle
+
 class SYTRunnable(RunnableSerializable):
-    """LCEL-native Runnable that manages context budget in the chain."""
+    """Outer layer: LCEL-native Runnable wrapping LangChainIntegration."""
 
     def invoke(self, input, config=None):
-        # 1. Classify input messages into context layers
-        # 2. Run budget check via BudgetEngine
-        # 3. Auto-compact if needed via StrategyEngine
-        # 4. Format context via ModelAdapter
-        # 5. Pass to next runnable in the chain
-        # 6. On response: run post_turn(), emit observability event
+        # Delegates to self._integration.intercept_context() + on_response()
 
     async def ainvoke(self, input, config=None):
         # Async version of the same flow
@@ -157,9 +175,18 @@ result = chain.invoke({"messages": conversation})
 
 **File**: `src/save_your_tokens/integrations/raw_sdk.py`
 
+**Design note**: Same two-layer approach. `RawSDKIntegration` extends `FrameworkIntegration`; `SYTWrapper` provides the ergonomic user-facing API.
+
 ```python
+class RawSDKIntegration(FrameworkIntegration):
+    """Inner layer: implements FrameworkIntegration for raw SDK usage."""
+    def setup(self, config): ...      # No-op
+    def teardown(self): ...            # No-op
+    def intercept_context(self, messages): ...  # Classify, budget check, compact, format
+    def on_response(self, response): ...        # Post-turn lifecycle
+
 class SYTWrapper:
-    """Thin wrapper for direct SDK usage (anthropic/openai/google-genai)."""
+    """Outer layer: ergonomic wrapper delegating to RawSDKIntegration."""
 
     def __init__(
         self,
@@ -213,7 +240,7 @@ summary = wrapper.on_response(response)
 - Feeds recorded turns through syt's lifecycle one at a time
 - Tracks cumulative tokens sent (with syt) vs. baseline (without syt)
 - Reports: savings %, compaction events triggered, budget utilization over time
-- No live API calls — uses adapter's `count_tokens()` for measurement, fixture `token_count` as ground truth
+- No live API calls — uses rough char-based token estimation (`len(text) // 4`) for measurement, since real adapters like `ClaudeAdapter.count_tokens()` require API keys. Fixture `token_count` values serve as ground truth for baseline comparison
 - Outputs markdown report (same format as Phase 1 synthetic benchmark)
 
 ### 5.3 Sample Fixtures
@@ -284,8 +311,8 @@ Each workstream includes its own tests:
 **Modified files (7)**:
 - `pyproject.toml` (deps, version bump)
 - `src/save_your_tokens/adapters/__init__.py` (registry)
-- `src/save_your_tokens/core/strategy.py` (import compactor from new location)
+- `src/save_your_tokens/core/strategy.py` (import compactor from new location, add observer param)
 - `src/save_your_tokens/reuse/observability.py` (expand LangfuseObserver)
-- `src/save_your_tokens/core/lifecycle.py` (wire observer)
+- `src/save_your_tokens/core/lifecycle.py` (wire observer param)
 - `tests/` (6+ new test files)
 - `docs/progress.md` (update status)
