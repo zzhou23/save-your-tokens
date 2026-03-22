@@ -73,9 +73,12 @@ class TestLocalModelCompactor:
         mock_response = MagicMock()
         mock_response.json.return_value = {"choices": [{"message": {"content": "summarized text"}}]}
 
+        # Content is 400 chars → ~100 estimated tokens (len // 4), which exceeds target_tokens=5
+        # so the short-circuit check does NOT fire and the HTTP call is made.
+        long_content = "word " * 80  # 400 chars, ~100 estimated tokens
         with patch("httpx.post", return_value=mock_response) as mock_post:
             compactor = LocalModelCompactor(endpoint="http://localhost:11434", model="llama3")
-            result = compactor.compact("some content to summarize", target_tokens=50)
+            result = compactor.compact(long_content, target_tokens=5)
 
         assert result == "summarized text"
         mock_post.assert_called_once()

@@ -83,6 +83,9 @@ class LocalModelCompactor:
         self._token_estimator = token_estimator or (lambda text: len(text) // 4)
 
     def compact(self, content: str, target_tokens: int) -> str:
+        estimated = self._token_estimator(content)
+        if estimated <= target_tokens:
+            return content
         import httpx
 
         response = httpx.post(
@@ -116,6 +119,8 @@ def create_compactor(backend: str = "extractive", **kwargs: Any) -> Compactor:
         case "truncation":
             return TruncationCompactor()
         case "llm":
+            if "adapter" not in kwargs:
+                raise ValueError("'adapter' keyword argument is required for 'llm' backend")
             return LLMCompactor(adapter=kwargs["adapter"])
         case "local":
             return LocalModelCompactor(
