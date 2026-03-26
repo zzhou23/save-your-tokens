@@ -1,0 +1,109 @@
+{
+  "metadata": {
+    "model": "claude-sonnet-4-6",
+    "recorded_at": "2026-03-22",
+    "description": "20-turn Q&A session covering Python basics, data structures, and algorithms"
+  },
+  "turns": [
+    {
+      "role": "user",
+      "content": "What is the difference between a list and a tuple in Python?",
+      "token_count": 75
+    },
+    {
+      "role": "assistant",
+      "content": "Lists and tuples are both sequence types in Python, but they have key differences. Lists are mutable — you can add, remove, or modify elements after creation using methods like append(), remove(), and direct index assignment. Tuples are immutable — once created, their elements cannot be changed. Lists use square brackets [], while tuples use parentheses (). Tuples are generally faster and use less memory than lists for the same data because Python can optimize their storage. Use lists when you need a collection that will change over time, and tuples for fixed collections of related items like coordinates or RGB values. Tuples can also be used as dictionary keys because they are hashable, while lists cannot.",
+      "token_count": 175
+    },
+    {
+      "role": "user",
+      "content": "How do dictionary comprehensions work in Python? Can you show an example?",
+      "token_count": 82
+    },
+    {
+      "role": "assistant",
+      "content": "Dictionary comprehensions create a new dictionary from an iterable in a concise syntax. The basic form is: {key_expr: value_expr for item in iterable}. Example: squares = {n: n**2 for n in range(1, 6)} produces {1: 1, 2: 4, 3: 9, 4: 16, 5: 25}. You can add a filter condition: even_squares = {n: n**2 for n in range(1, 11) if n % 2 == 0}. To invert a dictionary: inverted = {v: k for k, v in original.items()}. Dictionary comprehensions are more readable and often faster than equivalent for loops for constructing dictionaries.",
+      "token_count": 210
+    },
+    {
+      "role": "user",
+      "content": "What is the time complexity of Python's list.sort() method?",
+      "token_count": 68
+    },
+    {
+      "role": "assistant",
+      "content": "Python's list.sort() uses Timsort, a hybrid sorting algorithm combining merge sort and insertion sort. Its time complexity is O(n log n) in both average and worst cases. The best case is O(n) when the list is already sorted or nearly sorted, which makes Timsort particularly efficient for real-world data that tends to have some existing order. Space complexity is O(n) in the worst case because merge sort requires auxiliary space. Timsort is a stable sort, meaning equal elements maintain their relative order. The same algorithm is used by the built-in sorted() function.",
+      "token_count": 185
+    },
+    {
+      "role": "user",
+      "content": "Explain Python's GIL and how it affects multithreading.",
+      "token_count": 71
+    },
+    {
+      "role": "assistant",
+      "content": "The Global Interpreter Lock (GIL) is a mutex in CPython that prevents multiple native threads from executing Python bytecode simultaneously. Only one thread can hold the GIL at a time, which means CPU-bound Python code cannot truly run in parallel using threads. For CPU-bound tasks like heavy computation, use multiprocessing instead of threading since each process gets its own GIL and Python interpreter. For I/O-bound tasks like network requests and file reads, threading works well because threads release the GIL while waiting for I/O. Alternatively, asyncio provides cooperative multitasking for I/O-bound work without threads.",
+      "token_count": 193
+    },
+    {
+      "role": "user",
+      "content": "What is the difference between shallow copy and deep copy?",
+      "token_count": 64
+    },
+    {
+      "role": "assistant",
+      "content": "A shallow copy creates a new object but populates it with references to the same nested objects as the original. A deep copy creates a completely independent copy, recursively duplicating all nested objects. In Python, use copy.copy() for shallow copy and copy.deepcopy() for deep copy. If you have a list of lists and shallow copy it, modifying an inner list affects both the original and the copy. With deep copy, they are fully independent. Shallow copy is faster and uses less memory; use it when nested objects do not need to be independent. Deep copy is safer for complex data structures where you need true isolation.",
+      "token_count": 192
+    },
+    {
+      "role": "user",
+      "content": "How does Python's decorator pattern work? Show a simple example.",
+      "token_count": 78
+    },
+    {
+      "role": "assistant",
+      "content": "Decorators are functions that wrap another function to add behavior. The @ syntax is syntactic sugar for function reassignment. Example: define a timer decorator that records execution time, then apply it with @timer above a function definition. This is equivalent to slow_function = timer(slow_function). The wrapper function accepts *args and **kwargs to forward all arguments to the original. Use functools.wraps inside the wrapper to preserve the original function's __name__, __doc__, and other metadata. Decorators can also take arguments by adding another layer of nesting, creating a decorator factory.",
+      "token_count": 204
+    },
+    {
+      "role": "user",
+      "content": "What are Python generators and when should you use them?",
+      "token_count": 70
+    },
+    {
+      "role": "assistant",
+      "content": "Generators are functions that yield values one at a time instead of returning all values at once. They are lazy, meaning values are computed on demand, which makes them memory-efficient for large sequences. Use yield instead of return to create a generator function. A Fibonacci generator can produce an infinite sequence using a while True loop with yield. Use generators when working with large datasets that do not fit in memory, reading files line by line, implementing infinite sequences, or building data pipelines. Generator expressions like (x**2 for x in range(1000)) work like list comprehensions but are lazy. The yield from syntax delegates to another iterable.",
+      "token_count": 230
+    },
+    {
+      "role": "user",
+      "content": "What is memoization and how do you implement it in Python?",
+      "token_count": 69
+    },
+    {
+      "role": "assistant",
+      "content": "Memoization caches the results of function calls so repeated calls with the same arguments return the cached result instead of recomputing. Python provides functools.lru_cache for this. Apply @lru_cache(maxsize=None) to a recursive Fibonacci function and it drops from O(2^n) to O(n) calls. The @cache decorator in Python 3.9+ is equivalent to @lru_cache(maxsize=None). For manual implementation, use a dictionary keyed by arguments. Memoization works best for pure functions where the same inputs always produce the same outputs and there are no side effects. Watch for memory growth with large input spaces since the cache grows unboundedly with maxsize=None.",
+      "token_count": 235
+    },
+    {
+      "role": "user",
+      "content": "Explain the difference between __str__ and __repr__ in Python.",
+      "token_count": 74
+    },
+    {
+      "role": "assistant",
+      "content": "__str__ returns a human-readable string representation intended for end users, displayed by print() and str(). __repr__ returns an unambiguous string representation intended for developers, typically one that could recreate the object. If __str__ is not defined, Python falls back to __repr__. Best practice is for __repr__ to return something like ClassName(field=value) that clearly identifies the object. In interactive sessions, repr() output is shown for objects. When formatting strings, !r forces repr format. Always define at minimum __repr__ for custom classes to aid debugging; add __str__ only when a friendlier user-facing representation makes sense.",
+      "token_count": 215
+    },
+    {
+      "role": "user",
+      "content": "What is the purpose of Python's with statement and context managers?",
+      "token_count": 78
+    },
+    {
+      "role": "assistant",
+      "content": "The with statement ensures that setup and teardown code runs reliably around a block, even if exceptions occur. It calls __enter__ on entry and __exit__ on exit. Most commonly used for resource management: opening files (with open('file') as f:), acquiring locks, managing database connections, and temporary state changes. The contextlib.contextmanager decorator lets you write generators as context managers using yield to separate setup from teardown. The as clause captures the value returned by __enter__. Multiple context managers can be combined in a single with statement using commas. Context managers are preferred over try/finally blocks for resource cleanup because they are more readable and harder to get wrong.",
+      "token_count": 228
+    }
+  ]
+}
