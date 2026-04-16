@@ -35,3 +35,12 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+# Security
+.env
+.env.*
+.env.local
+*.pem
+*.key
+*.p12
+*.pfx
